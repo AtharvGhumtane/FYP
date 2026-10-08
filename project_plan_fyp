@@ -1,0 +1,204 @@
+# 🎓 AI-Powered Smart Examination & Learning Analytics Platform
+## Final Year Project Architecture & Implementation Plan
+
+---
+
+### 1. System Overview & Objectives
+An enterprise-grade online testing and academic performance analytics platform tailored for educational institutions:
+- **Teacher Role**: Create/manage classrooms, approve/reject student join requests, schedule MCQ tests with 4 options & time windows, view overall class performance graphs, and obtain deep **Gemini AI** insights on class growth and individual student trajectories.
+- **Student Role**: Request access to teacher classes, receive notifications for scheduled tests, take timed MCQ tests with auto-grading, view instant scorecards, and track personal growth via AI-driven analytics.
+- **Gemini AI Intelligence**: Evaluates student test patterns, identifies weak/strong areas, predicts learning trajectories, and generates automated actionable recommendations for teachers and students.
+
+---
+
+### 2. Technology Stack & Integrations
+| Layer | Technologies |
+| :--- | :--- |
+| **Backend** | Java 21, Spring Boot 3.x / 4.x (Spring Web, Spring Data JPA, Spring Security, Validation) |
+| **Database** | PostgreSQL with Hibernate ORM |
+| **Authentication** | JWT (JSON Web Tokens) + Google OAuth2 / Social Login + Role-Based Access Control (`ROLE_TEACHER`, `ROLE_STUDENT`) |
+| **AI Engine** | Google Gemini API (`gemini-1.5-pro` / `gemini-1.5-flash`) for automated student reports and class growth insights |
+| **Frontend UI** | Modern Responsive Web Application (Glassmorphism design system, Chart.js for dynamic growth visualizations, Live Countdown timers, Notification badges) |
+| **Build Tool** | Apache Maven |
+
+---
+
+### 3. Database Schema Design (PostgreSQL)
+
+```mermaid
+erDiagram
+    USERS ||--o{ CLASSROOMS : "teaches"
+    USERS ||--o{ ENROLLMENTS : "submits join request"
+    CLASSROOMS ||--o{ ENROLLMENTS : "has students"
+    CLASSROOMS ||--o{ TESTS : "contains"
+    TESTS ||--o{ QUESTIONS : "has MCQs"
+    TESTS ||--o{ SUBMISSIONS : "taken by students"
+    USERS ||--o{ SUBMISSIONS : "submits"
+    SUBMISSIONS ||--o{ STUDENT_ANSWERS : "contains"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    USERS ||--o{ AI_REPORTS : "analyzed by"
+
+    USERS {
+        uuid id PK
+        string full_name
+        string email
+        string password_hash
+        enum role "TEACHER, STUDENT"
+        enum auth_provider "LOCAL, GOOGLE"
+        timestamp created_at
+    }
+
+    CLASSROOMS {
+        uuid id PK
+        string name
+        string subject
+        string class_code UK
+        uuid teacher_id FK
+        text description
+        timestamp created_at
+    }
+
+    ENROLLMENTS {
+        uuid id PK
+        uuid class_id FK
+        uuid student_id FK
+        enum status "PENDING, ACCEPTED, REJECTED"
+        timestamp requested_at
+        timestamp responded_at
+    }
+
+    TESTS {
+        uuid id PK
+        uuid class_id FK
+        uuid teacher_id FK
+        string title
+        text description
+        timestamp start_time
+        timestamp end_time
+        int duration_minutes
+        int total_marks
+        boolean is_published
+        timestamp created_at
+    }
+
+    QUESTIONS {
+        uuid id PK
+        uuid test_id FK
+        text question_text
+        string option_a
+        string option_b
+        string option_c
+        string option_d
+        enum correct_option "A, B, C, D"
+        int marks
+        text explanation
+    }
+
+    SUBMISSIONS {
+        uuid id PK
+        uuid test_id FK
+        uuid student_id FK
+        int score
+        int total_marks
+        double percentage
+        jsonb ai_feedback
+        timestamp submitted_at
+    }
+
+    STUDENT_ANSWERS {
+        uuid id PK
+        uuid submission_id FK
+        uuid question_id FK
+        enum selected_option "A, B, C, D"
+        boolean is_correct
+        int marks_obtained
+    }
+
+    NOTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        string title
+        text message
+        enum type "TEST_SCHEDULED, ENROLLMENT_REQUEST, REQUEST_APPROVED, TEST_EVALUATED"
+        boolean is_read
+        timestamp created_at
+    }
+
+    AI_REPORTS {
+        uuid id PK
+        enum report_type "INDIVIDUAL_STUDENT, CLASS_OVERALL"
+        uuid target_id "student_id or class_id"
+        jsonb analytics_data
+        text ai_summary
+        text strengths
+        text areas_for_improvement
+        timestamp generated_at
+    }
+```
+
+---
+
+### 4. Key Architectural Modules
+
+#### A. Auth & Security Module
+- User Registration & Login with Password Hashing (BCrypt).
+- Google OAuth2 Integration & Seamless JWT token issuance.
+- Role-based endpoints (`/api/teacher/**`, `/api/student/**`, `/api/common/**`).
+
+#### B. Classroom & Request-Approval Workflow
+- Teachers generate classes with unique alphanumeric `class_code`.
+- Students submit join requests using `class_code`.
+- Teacher gets instant notification and can review student requests: **Accept** or **Reject**.
+- Only accepted students can view tests, notifications, and analytics for that class.
+
+#### C. Test Creation & Scheduling Engine
+- Teacher creates MCQ tests with 4 distinct options and defines the correct option.
+- Configurable test window (start date/time, deadline, and countdown timer duration).
+- Automatic student notification dispatch upon test publishing.
+
+#### D. Interactive Test Taking & Auto-Evaluation Engine
+- Secure student test interface with live countdown timer and anti-tamper safeguards.
+- Auto-submission on timer expiry.
+- Instant scoring and answer review.
+
+#### E. Gemini AI Growth & Performance Analytics Engine
+- **Individual Student Report**:
+  - Compiles student historical scores, speed, accuracy, and topic weak-spots.
+  - Prompts Gemini API to generate personalized learning diagnosis, trajectory predictions, and strengths/weaknesses.
+- **Overall Class Growth Report**:
+  - Aggregates score distributions, difficulty curves, top miss rates across questions.
+  - Prompts Gemini API to generate pedagogical insights and class performance summaries.
+- **Visualization Component**:
+  - Interactive Chart.js graphs (Growth curves over time, Class bell curves, Skill radar charts).
+
+#### F. In-App Notification System
+- Real-time notification center for test announcements, enrollment approvals, and evaluation results.
+
+---
+
+### 5. Detailed Implementation Phases
+
+1. **Phase 1: Project Setup & Dependencies**
+   - Update [pom.xml](file:///c:/Users/athar/Downloads/lastyear/lastyear/pom.xml) with PostgreSQL, Spring Data JPA, Spring Security, JJWT, Spring Validation, and HTTP Client for Gemini.
+   - Configure [application.properties](file:///c:/Users/athar/Downloads/lastyear/lastyear/src/main/resources/application.properties) for PostgreSQL datasource and Gemini API keys.
+
+2. **Phase 2: Database Entities & JPA Repositories**
+   - Implement `User`, `Classroom`, `ClassEnrollment`, `Test`, `Question`, `TestSubmission`, `StudentAnswer`, `Notification`, `AiReport`.
+
+3. **Phase 3: Authentication, Security & Google Auth**
+   - Implement JWT Filters, Token Providers, UserDetailsService, Auth Controllers, and Google OAuth handler.
+
+4. **Phase 4: Classroom & Enrollment REST APIs**
+   - Endpoints for creating classes, requesting to join, teacher request approval/rejection, and member management.
+
+5. **Phase 5: Test Builder, Scheduling & Assessment Engine**
+   - Endpoints for test authoring, question management, test listing, live test taking, and automatic evaluation.
+
+6. **Phase 6: Gemini AI Analytics Service**
+   - Prompt engineering and structured JSON generation for individual student progress and whole-class performance analysis.
+
+7. **Phase 7: Frontend UI & Interactive Dashboards**
+   - Sleek responsive web UI with Teacher Portal (Class overview, Request approval, Test creator, Class growth charts, Gemini insights) and Student Portal (Class join, Test runner, Scorecard, Personal AI progress).
+
+8. **Phase 8: End-to-End Verification & Documentation**
+   - Comprehensive test runs, API documentation, and presentation walkthrough.

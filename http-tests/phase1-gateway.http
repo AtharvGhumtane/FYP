@@ -1,0 +1,39 @@
+### Phase 1: API Gateway Verification Tests
+@gatewayUrl = http://localhost:8080
+
+### 1. Gateway Actuator Health Check
+GET {{gatewayUrl}}/actuator/health
+Accept: application/json
+
+### 2. Standard /internal path (Must return 403 Forbidden)
+GET {{gatewayUrl}}/internal/classes/11111111-1111-1111-1111-111111111111/verify-teacher
+Accept: application/json
+
+### 3. Uppercase /INTERNAL path (Must return 403 Forbidden)
+GET {{gatewayUrl}}/INTERNAL/classes/11111111-1111-1111-1111-111111111111/verify-teacher
+Accept: application/json
+
+### 4. Mixed-case /InTeRnAl path (Must return 403 Forbidden)
+GET {{gatewayUrl}}/InTeRnAl/classes/11111111-1111-1111-1111-111111111111/verify-teacher
+Accept: application/json
+
+### 5. URL-encoded /%69%6e%74%65%72%6e%61%6c path (Must return 403 Forbidden)
+GET {{gatewayUrl}}/%69%6e%74%65%72%6e%61%6c/classes/11111111-1111-1111-1111-111111111111/verify-teacher
+Accept: application/json
+
+### 6. Double-slash //internal// path (Must return 403 Forbidden)
+GET {{gatewayUrl}}//internal//classes/11111111-1111-1111-1111-111111111111/verify-teacher
+Accept: application/json
+
+### 7. Path traversal with dot-segments /api/auth/../internal/test (Must return 403 Forbidden)
+GET {{gatewayUrl}}/api/auth/../internal/test
+Accept: application/json
+
+### 8. Matrix parameter /internal;param=value/test (Must return 403 Forbidden)
+GET {{gatewayUrl}}/internal;jsessionid=999/classes
+Accept: application/json
+
+### 9. Verify client-sent X-Internal-Token on public route is stripped
+GET {{gatewayUrl}}/api/auth/me
+X-Internal-Token: malicious-spoofed-token
+Accept: application/json

@@ -1,0 +1,101 @@
+### Phase 2: Auth Service HTTP Verification Collection
+@baseUrl = http://localhost:8080
+@authServiceDirect = http://localhost:8081
+@internalKey = your_internal_service_key_for_backend_services_only
+
+### 1. Register a new Student (Server enforces ROLE_STUDENT)
+POST {{baseUrl}}/api/auth/register/student
+Content-Type: application/json
+
+{
+  "fullName": "Alice Student",
+  "email": "alice.student@university.edu",
+  "password": "Password123!"
+}
+
+### 2. Login as Student (Receives JWT with role ROLE_STUDENT)
+# @name studentLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice.student@university.edu",
+  "password": "Password123!"
+}
+
+### 3. Get Current User Profile as Student
+@studentToken = {{studentLogin.response.body.token}}
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{studentToken}}
+
+### 4. Admin Login with Seeded Credentials
+# @name adminLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@system.local",
+  "password": "AdminStrongPassword123!"
+}
+
+### 5. Admin Generates Teacher Authorization Key
+@adminToken = {{adminLogin.response.body.token}}
+# @name generateKey
+POST {{baseUrl}}/api/admin/teacher-keys
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "teacherEmail": "prof.smith@university.edu"
+}
+
+### 6. Admin Lists All Teacher Keys
+GET {{baseUrl}}/api/admin/teacher-keys
+Authorization: Bearer {{adminToken}}
+
+### 7. Teacher Registration with WRONG Key (Should Fail 401)
+POST {{baseUrl}}/api/auth/register/teacher
+Content-Type: application/json
+
+{
+  "fullName": "Prof. John Smith",
+  "email": "prof.smith@university.edu",
+  "password": "TeacherPassword123!",
+  "secretKey": "TC-WrongSecretKey123456"
+}
+
+### 8. Teacher Registration with CORRECT Key (Replace secretKey from step 5 response)
+@teacherSecretKey = {{generateKey.response.body.rawSecretKey}}
+# @name teacherRegister
+POST {{baseUrl}}/api/auth/register/teacher
+Content-Type: application/json
+
+{
+  "fullName": "Prof. John Smith",
+  "email": "prof.smith@university.edu",
+  "password": "TeacherPassword123!",
+  "secretKey": "{{teacherSecretKey}}"
+}
+
+### 9. Teacher Login (Receives JWT with role ROLE_TEACHER)
+# @name teacherLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "prof.smith@university.edu",
+  "password": "TeacherPassword123!"
+}
+
+### 10. Get Current User Profile as Teacher
+@teacherToken = {{teacherLogin.response.body.token}}
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{teacherToken}}
+
+### 11. Internal Service: S2S Get User by ID (Direct to auth-service on :8081 with X-Internal-Token)
+@userId = {{studentLogin.response.body.userId}}
+GET {{authServiceDirect}}/internal/users/{{userId}}
+X-Internal-Token: {{internalKey}}
+
+### 12. Internal Service: Unauthorized S2S Call (Without X-Internal-Token -> Should return 401)
+GET {{authServiceDirect}}/internal/users/{{userId}}
