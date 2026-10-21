@@ -1,0 +1,178 @@
+### Phase 4 Assessment Service HTTP Test Suite
+@baseUrl = http://localhost:8080
+@jwtSecret = 01234567890123456789012345678901_very_secure_secret_key_for_test!
+
+### 1. Register Teacher
+# @name teacherRegister
+POST {{baseUrl}}/api/auth/register/teacher
+Content-Type: application/json
+
+{
+  "fullName": "Prof. Turing",
+  "email": "turing@university.edu",
+  "password": "Password123!",
+  "secretKey": "TEACHER-KEY-12345"
+}
+
+### 2. Login Teacher
+# @name teacherLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "turing@university.edu",
+  "password": "Password123!"
+}
+
+@teacherToken = {{teacherLogin.response.body.token}}
+
+### 3. Register Student
+# @name studentRegister
+POST {{baseUrl}}/api/auth/register/student
+Content-Type: application/json
+
+{
+  "fullName": "Ada Lovelace",
+  "email": "ada@university.edu",
+  "password": "Password123!"
+}
+
+### 4. Login Student
+# @name studentLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "ada@university.edu",
+  "password": "Password123!"
+}
+
+@studentToken = {{studentLogin.response.body.token}}
+
+### 5. Teacher creates a Classroom
+# @name createClass
+POST {{baseUrl}}/api/classes
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "name": "Algorithms 101",
+  "subject": "Computer Science",
+  "description": "Foundations of algorithms and data structures"
+}
+
+@classId = {{createClass.response.body.id}}
+@classCode = {{createClass.response.body.classCode}}
+
+### 6. Student joins class
+POST {{baseUrl}}/api/classes/join
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "classCode": "{{classCode}}"
+}
+
+### 7. Teacher approves student join request
+# @name approveRequest
+POST {{baseUrl}}/api/classes/{{classId}}/requests/{{studentRegister.response.body.userId}}
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED"
+}
+
+### 8. Teacher creates a Test with MCQs
+# @name createTest
+POST {{baseUrl}}/api/tests
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "classId": "{{classId}}",
+  "title": "Quiz 1: Big-O & Data Structures",
+  "description": "First assessment on computational complexity",
+  "startTime": "2026-10-09T00:00:00Z",
+  "endTime": "2026-10-10T23:59:59Z",
+  "durationMinutes": 30,
+  "questions": [
+    {
+      "topic": "Complexity Analysis",
+      "questionText": "What is the worst-case time complexity of QuickSort?",
+      "optionA": "O(n log n)",
+      "optionB": "O(n^2)",
+      "optionC": "O(n)",
+      "optionD": "O(log n)",
+      "correctOption": "B",
+      "marks": 2,
+      "explanation": "When pivot selection is unbalanced, QuickSort degrades to O(n^2)."
+    },
+    {
+      "topic": "Data Structures",
+      "questionText": "Which data structure is best for implementing a LIFO structure?",
+      "optionA": "Queue",
+      "optionB": "Stack",
+      "optionC": "Binary Heap",
+      "optionD": "Linked List",
+      "correctOption": "B",
+      "marks": 3,
+      "explanation": "Stack implements Last-In-First-Out (LIFO)."
+    }
+  ]
+}
+
+@testId = {{createTest.response.body.id}}
+@q1Id = {{createTest.response.body.questions[0].id}}
+@q2Id = {{createTest.response.body.questions[1].id}}
+
+### 9. Student lists tests for Class (answers hidden)
+GET {{baseUrl}}/api/tests/class/{{classId}}
+Authorization: Bearer {{studentToken}}
+
+### 10. Student gets test details before start (answers hidden)
+GET {{baseUrl}}/api/tests/{{testId}}
+Authorization: Bearer {{studentToken}}
+
+### 11. Student starts test
+# @name startTest
+POST {{baseUrl}}/api/tests/{{testId}}/start
+Authorization: Bearer {{studentToken}}
+
+### 12. Student autosaves answers
+PUT {{baseUrl}}/api/tests/{{testId}}/answers
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    {
+      "questionId": "{{q1Id}}",
+      "selectedOption": "B"
+    }
+  ]
+}
+
+### 13. Student submits test
+# @name submitTest
+POST {{baseUrl}}/api/tests/{{testId}}/submit
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    {
+      "questionId": "{{q2Id}}",
+      "selectedOption": "B"
+    }
+  ],
+  "tabSwitchCount": 0
+}
+
+### 14. Student views own scorecard (shows explanations and grading)
+GET {{baseUrl}}/api/tests/{{testId}}/my-submission
+Authorization: Bearer {{studentToken}}
+
+### 15. Teacher views all submissions for the test
+GET {{baseUrl}}/api/tests/{{testId}}/submissions
+Authorization: Bearer {{teacherToken}}

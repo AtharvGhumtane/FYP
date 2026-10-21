@@ -1,0 +1,44 @@
+### Phase 5 Notification Service HTTP Test Suite
+@baseUrl = http://localhost:8080
+@jwtSecret = 01234567890123456789012345678901_very_secure_secret_key_for_test!
+
+### 1. Register Student
+# @name studentRegister
+POST {{baseUrl}}/api/auth/register/student
+Content-Type: application/json
+
+{
+  "fullName": "Nikola Tesla",
+  "email": "tesla@university.edu",
+  "password": "Password123!"
+}
+
+### 2. Login Student
+# @name studentLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "tesla@university.edu",
+  "password": "Password123!"
+}
+
+@studentToken = {{studentLogin.response.body.token}}
+@studentId = {{studentLogin.response.body.userId}}
+
+### 3. Poll Notifications (All)
+GET {{baseUrl}}/api/notifications
+Authorization: Bearer {{studentToken}}
+
+### 4. Poll Notifications (Unread Only)
+GET {{baseUrl}}/api/notifications?unreadOnly=true
+Authorization: Bearer {{studentToken}}
+
+### 5. Mark Single Notification as Read
+# Replace {notificationId} with an actual ID received from poll
+PATCH {{baseUrl}}/api/notifications/00000000-0000-0000-0000-000000000000/read
+Authorization: Bearer {{studentToken}}
+
+### 6. Mark All Notifications as Read
+POST {{baseUrl}}/api/notifications/mark-all-read
+Authorization: Bearer {{studentToken}}

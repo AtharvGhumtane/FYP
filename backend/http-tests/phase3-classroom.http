@@ -1,0 +1,85 @@
+### Phase 3: Classroom Service HTTP Verification Collection
+@baseUrl = http://localhost:8080
+@classroomServiceDirect = http://localhost:8082
+@internalKey = your_internal_service_key_for_backend_services_only
+
+### 1. Teacher Login
+# @name teacherLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "prof.smith@university.edu",
+  "password": "TeacherPassword123!"
+}
+
+### 2. Student Login
+# @name studentLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice.student@university.edu",
+  "password": "Password123!"
+}
+
+### 3. Teacher Creates a New Classroom
+@teacherToken = {{teacherLogin.response.body.token}}
+# @name createClass
+POST {{baseUrl}}/api/classes
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "title": "Computer Networks & Distributed Systems",
+  "description": "TCP/IP, HTTP/3, consensus algorithms, and microservices architecture"
+}
+
+### 4. Student Lists Classes (Before Enrollment)
+@studentToken = {{studentLogin.response.body.token}}
+GET {{baseUrl}}/api/classes
+Authorization: Bearer {{studentToken}}
+
+### 5. Student Requests to Join Classroom
+@classId = {{createClass.response.body.id}}
+POST {{baseUrl}}/api/classes/{{classId}}/join
+Authorization: Bearer {{studentToken}}
+
+### 6. Teacher Views Pending Join Requests
+GET {{baseUrl}}/api/classes/{{classId}}/requests
+Authorization: Bearer {{teacherToken}}
+
+### 7. Teacher Approves Student Join Request
+@studentId = {{studentLogin.response.body.userId}}
+POST {{baseUrl}}/api/classes/{{classId}}/requests/{{studentId}}
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED"
+}
+
+### 8. Student Views Enrolled Class Details
+GET {{baseUrl}}/api/classes/{{classId}}
+Authorization: Bearer {{studentToken}}
+
+### 9. Student / Teacher Views Class Roster
+GET {{baseUrl}}/api/classes/{{classId}}/roster
+Authorization: Bearer {{studentToken}}
+
+### 10. Internal S2S: Assessment Service Verifies Student Enrollment (Direct to :8082)
+GET {{classroomServiceDirect}}/internal/classes/{{classId}}/verify-student/{{studentId}}
+X-Internal-Token: {{internalKey}}
+
+### 11. Internal S2S: Assessment Service Verifies Teacher Ownership (Direct to :8082)
+@teacherId = {{teacherLogin.response.body.userId}}
+GET {{classroomServiceDirect}}/internal/classes/{{classId}}/verify-teacher/{{teacherId}}
+X-Internal-Token: {{internalKey}}
+
+### 12. Internal S2S: Assessment Service Fetches Class Roster for Notifications (Direct to :8082)
+GET {{classroomServiceDirect}}/internal/classes/{{classId}}/roster
+X-Internal-Token: {{internalKey}}
+
+### 13. Security Test: Internal Route Blocked at Gateway (Should return 403 Forbidden)
+GET {{baseUrl}}/internal/classes/{{classId}}/roster
+X-Internal-Token: {{internalKey}}

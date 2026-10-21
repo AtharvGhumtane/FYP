@@ -1,0 +1,250 @@
+### 🎓 AI-Powered Smart Examination & Learning Analytics Platform
+### Complete End-to-End Multi-Service System Test Suite (Through API Gateway :8080)
+
+@baseUrl = http://localhost:8080
+
+### =========================================================================
+### 1. ADMIN FLOW: Authenticate & Generate Teacher Secret Key
+### =========================================================================
+
+# @name adminLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "atharvghumtane02@gmail.com",
+  "password": "AdminPass@2026"
+}
+
+@adminToken = {{adminLogin.response.body.token}}
+
+### Admin creates a new Teacher Secret Key
+# @name createTeacherKey
+POST {{baseUrl}}/api/admin/teacher-keys
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "teacherEmail": "dr.smith@university.edu",
+  "secretKey": "TEACHER-SECRET-KEY-2026"
+}
+
+### =========================================================================
+### 2. TEACHER REGISTRATION & LOGIN
+### =========================================================================
+
+# @name teacherRegister
+POST {{baseUrl}}/api/auth/register/teacher
+Content-Type: application/json
+
+{
+  "fullName": "Dr. John Smith",
+  "email": "dr.smith@university.edu",
+  "password": "Password123!",
+  "secretKey": "TEACHER-SECRET-KEY-2026"
+}
+
+# @name teacherLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "dr.smith@university.edu",
+  "password": "Password123!"
+}
+
+@teacherToken = {{teacherLogin.response.body.token}}
+@teacherId = {{teacherLogin.response.body.userId}}
+
+### =========================================================================
+### 3. STUDENT REGISTRATION & LOGIN
+### =========================================================================
+
+# @name studentRegister
+POST {{baseUrl}}/api/auth/register/student
+Content-Type: application/json
+
+{
+  "fullName": "Grace Hopper",
+  "email": "grace@university.edu",
+  "password": "Password123!"
+}
+
+# @name studentLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "grace@university.edu",
+  "password": "Password123!"
+}
+
+@studentToken = {{studentLogin.response.body.token}}
+@studentId = {{studentLogin.response.body.userId}}
+
+### =========================================================================
+### 4. CLASSROOM LIFECYCLE: Create Class, Join Request, Approval
+### =========================================================================
+
+# @name createClass
+POST {{baseUrl}}/api/classes
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "name": "Advanced Data Structures & Algorithms",
+  "subject": "Computer Science",
+  "description": "Deep dive into trees, graphs, and dynamic programming"
+}
+
+@classId = {{createClass.response.body.id}}
+@classCode = {{createClass.response.body.classCode}}
+
+### Student submits request to join class using code
+# @name joinClass
+POST {{baseUrl}}/api/classes/join
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "classCode": "{{classCode}}"
+}
+
+### Teacher views pending enrollment requests
+GET {{baseUrl}}/api/classes/{{classId}}/requests
+Authorization: Bearer {{teacherToken}}
+
+### Teacher approves student enrollment
+POST {{baseUrl}}/api/classes/{{classId}}/requests/{{studentId}}
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED"
+}
+
+### Student views enrolled classes
+GET {{baseUrl}}/api/classes/enrolled
+Authorization: Bearer {{studentToken}}
+
+### =========================================================================
+### 5. ASSESSMENT LIFECYCLE: Create Test, Start, Autosave, Submit
+### =========================================================================
+
+# @name createTest
+POST {{baseUrl}}/api/tests
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "classId": "{{classId}}",
+  "title": "Exam 1: Graph Algorithms",
+  "description": "Shortest path and spanning trees",
+  "startTime": "2026-10-01T00:00:00Z",
+  "endTime": "2026-10-30T23:59:59Z",
+  "durationMinutes": 45,
+  "questions": [
+    {
+      "topic": "Shortest Path",
+      "questionText": "What is the time complexity of Dijkstra with a min-heap?",
+      "optionA": "O(V^2)",
+      "optionB": "O((V + E) log V)",
+      "optionC": "O(E log V)",
+      "optionD": "O(V log E)",
+      "correctOption": "B",
+      "marks": 5,
+      "explanation": "Extracting min V times and updating E edge weights gives O((V + E) log V)."
+    },
+    {
+      "topic": "Spanning Trees",
+      "questionText": "Kruskal's algorithm uses which data structure to detect cycles?",
+      "optionA": "Disjoint Set Union (DSU)",
+      "optionB": "Stack",
+      "optionC": "Queue",
+      "optionD": "Fenwick Tree",
+      "correctOption": "A",
+      "marks": 5,
+      "explanation": "DSU / Union-Find maintains connected components in O(alpha(N))."
+    }
+  ]
+}
+
+@testId = {{createTest.response.body.id}}
+@q1Id = {{createTest.response.body.questions[0].id}}
+@q2Id = {{createTest.response.body.questions[1].id}}
+
+### Student starts the test
+# @name startTest
+POST {{baseUrl}}/api/tests/{{testId}}/start
+Authorization: Bearer {{studentToken}}
+
+### Student autosaves answers in progress
+PUT {{baseUrl}}/api/tests/{{testId}}/answers
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    {
+      "questionId": "{{q1Id}}",
+      "selectedOption": "B"
+    }
+  ]
+}
+
+### Student submits the test
+# @name submitTest
+POST {{baseUrl}}/api/tests/{{testId}}/submit
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    {
+      "questionId": "{{q2Id}}",
+      "selectedOption": "A"
+    }
+  ],
+  "tabSwitchCount": 0
+}
+
+### Student views own graded scorecard
+GET {{baseUrl}}/api/tests/{{testId}}/my-submission
+Authorization: Bearer {{studentToken}}
+
+### Teacher views all submissions for the test
+GET {{baseUrl}}/api/tests/{{testId}}/submissions
+Authorization: Bearer {{teacherToken}}
+
+### =========================================================================
+### 6. NOTIFICATION LIFECYCLE: Polling & Mark Read
+### =========================================================================
+
+### Student polls notifications (should see test scheduled and evaluated notifications)
+# @name pollNotifications
+GET {{baseUrl}}/api/notifications
+Authorization: Bearer {{studentToken}}
+
+### Student marks all notifications as read
+POST {{baseUrl}}/api/notifications/mark-all-read
+Authorization: Bearer {{studentToken}}
+
+### =========================================================================
+### 7. ANALYTICS & GOOGLE GEMINI AI LEARNING DIAGNOSIS
+### =========================================================================
+
+### Student views database visual analytics (Score trend & Topic accuracy)
+GET {{baseUrl}}/api/analytics/student/{{studentId}}/db-metrics
+Authorization: Bearer {{studentToken}}
+
+### Student triggers / retrieves Google Gemini AI Learning Diagnosis
+GET {{baseUrl}}/api/analytics/student/{{studentId}}/ai-report
+Authorization: Bearer {{studentToken}}
+
+### Teacher views class visual analytics (Score distribution & Topic performance)
+GET {{baseUrl}}/api/analytics/class/{{classId}}/db-metrics
+Authorization: Bearer {{teacherToken}}
+
+### Teacher triggers / retrieves Google Gemini AI Class Instructional Diagnosis
+GET {{baseUrl}}/api/analytics/class/{{classId}}/ai-report
+Authorization: Bearer {{teacherToken}}

@@ -1,0 +1,81 @@
+### Phase 6 Analytics & Gemini AI HTTP Test Suite
+@baseUrl = http://localhost:8080
+@jwtSecret = 01234567890123456789012345678901_very_secure_secret_key_for_test!
+
+### 1. Register Student
+# @name studentRegister
+POST {{baseUrl}}/api/auth/register/student
+Content-Type: application/json
+
+{
+  "fullName": "Marie Curie",
+  "email": "curie@university.edu",
+  "password": "Password123!"
+}
+
+### 2. Login Student
+# @name studentLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "curie@university.edu",
+  "password": "Password123!"
+}
+
+@studentToken = {{studentLogin.response.body.token}}
+@studentId = {{studentLogin.response.body.userId}}
+
+### 3. Register Teacher
+# @name teacherRegister
+POST {{baseUrl}}/api/auth/register/teacher
+Content-Type: application/json
+
+{
+  "fullName": "Prof. Einstein",
+  "email": "einstein@university.edu",
+  "password": "Password123!",
+  "secretKey": "TEACHER-KEY-12345"
+}
+
+### 4. Login Teacher
+# @name teacherLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "einstein@university.edu",
+  "password": "Password123!"
+}
+
+@teacherToken = {{teacherLogin.response.body.token}}
+
+### 5. Teacher creates Class
+# @name createClass
+POST {{baseUrl}}/api/classes
+Authorization: Bearer {{teacherToken}}
+Content-Type: application/json
+
+{
+  "name": "Physics & Analytics",
+  "subject": "Physics",
+  "description": "Mechanics and thermodynamics"
+}
+
+@classId = {{createClass.response.body.id}}
+
+### 6. Get Student DB Visual Metrics (Score trend, Topic accuracy)
+GET {{baseUrl}}/api/analytics/student/{{studentId}}/db-metrics
+Authorization: Bearer {{studentToken}}
+
+### 7. Get Class DB Visual Metrics (Score distribution, Cohort average)
+GET {{baseUrl}}/api/analytics/class/{{classId}}/db-metrics
+Authorization: Bearer {{teacherToken}}
+
+### 8. Generate / Fetch Student Google Gemini AI Learning Diagnosis
+GET {{baseUrl}}/api/analytics/student/{{studentId}}/ai-report
+Authorization: Bearer {{studentToken}}
+
+### 9. Generate / Fetch Class Google Gemini AI Instructional Diagnosis
+GET {{baseUrl}}/api/analytics/class/{{classId}}/ai-report
+Authorization: Bearer {{teacherToken}}
